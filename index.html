@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neko's Advent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/advent.css">
+<link rel="stylesheet" href="themes/themes.css">
+</head>
+<body>
+<div id="root"></div>
+<nav class="picker" id="picker" aria-label="Pick a look"></nav>
+<button class="toybox-btn" id="toyboxBtn">🎠 Toy Box<span id="toyCount">0</span></button>
+
+<script src="shared/days.js"></script>
+<script src="audio/manifest.js"></script>
+<script src="vendor/three.min.js"></script>
+<script src="shared/advent.js"></script>
+<script src="shared/toys.js"></script>
+<script src="themes/themes.js"></script>
+<script>
+  // Theme picker: she chooses the look; progress and stickers are shared across all of them.
+  const root = document.getElementById('root');
+  const picker = document.getElementById('picker');
+  let render = null;
+
+  const saved = (() => { try { return localStorage.getItem('neko-theme'); } catch (e) { return null; } })();
+  let current = THEMES[saved] ? saved : 'house';
+
+  function show(key, animate) {
+    current = key;
+    try { localStorage.setItem('neko-theme', key); } catch (e) {}
+    document.body.className = 't-' + key;
+    render = THEMES[key].mount(root);
+    render();
+    if (animate) { root.classList.remove('theme-in'); void root.offsetWidth; root.classList.add('theme-in'); }
+    picker.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.k === key));
+  }
+
+  for (const [key, t] of Object.entries(THEMES)) {
+    const b = document.createElement('button');
+    b.dataset.k = key; b.textContent = t.icon; b.title = t.label; b.setAttribute('aria-label', t.label);
+    b.onclick = () => { if (key !== current) { Advent.sfx.sparkle(); show(key, true); } };
+    picker.append(b);
+  }
+
+  const toyBtn = document.getElementById('toyboxBtn');
+  if (!(window.Toys && Toys.ok)) toyBtn.hidden = true;
+  toyBtn.onclick = () => Toys.open();
+  let lastCount = null;
+  function onChange() {
+    if (render) render();
+    const n = Advent.openedCount();
+    document.getElementById('toyCount').textContent = `${n}/25`;
+    if (lastCount !== null && n > lastCount) { toyBtn.classList.remove('wiggle'); void toyBtn.offsetWidth; toyBtn.classList.add('wiggle'); }
+    lastCount = n;
+  }
+  Advent.init({ key: 'neko-advent', onChange });
+  show(current, false);
+  onChange();
+</script>
+</body>
+</html>
