@@ -2,8 +2,15 @@
    refreshes door states. Progress is shared: switching looks never loses anything. */
 (function () {
   const countdownHTML = () => Advent.countdowns().map((c) => `<span>${c}</span>`).join('');
-  const stickersHTML = () => Advent.stickers().map((s) => (s.have ? `<span class="have">${Advent.stickerHTML(s.d)}</span>` : `<span class="empty">${s.d}</span>`)).join('');
-  const openToyBox = () => window.Toys && window.Toys.ok && window.Toys.open();
+  const stickersHTML = () => Advent.stickers().map((s) => (s.have ? `<span class="have" data-d="${s.d}">${Advent.stickerHTML(s.d)}</span>` : `<span class="empty" data-d="${s.d}">${s.d}</span>`)).join('');
+  // tap a sticker → toy box spins to that toy (and brings it forward if she has it)
+  const openToyBox = (e) => {
+    if (!(window.Toys && window.Toys.ok)) return;
+    const spot = e && e.target.closest('[data-d]');
+    if (!spot) return window.Toys.open({ at: Advent.lastOpened() });
+    const d = +spot.dataset.d;
+    window.Toys.open(Advent.status(d) === 'opened' ? { focus: d } : { at: d });
+  };
   const nudge = (node, cls) => { node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls); };
   const q = (root, s) => root.querySelector(s);
 

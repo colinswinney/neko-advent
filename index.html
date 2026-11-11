@@ -54,7 +54,7 @@
 
   const toyBtn = document.getElementById('toyboxBtn');
   if (!(window.Toys && Toys.ok)) toyBtn.hidden = true;
-  toyBtn.onclick = () => Toys.open();
+  toyBtn.onclick = () => Toys.open({ at: Advent.lastOpened() });
   let lastCount = null;
   function onChange() {
     if (render) render();

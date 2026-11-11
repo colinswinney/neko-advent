@@ -388,7 +388,7 @@
   // ================================================================= toy box (merry-go-round)
   const N = 25, R = 4.2;
   let built = false, ui, renderer, scene, camera, platform, dim, snow, raf = 0, clock;
-  let rot = 0, vel = 0, mode = 'carousel', focused = null, busy = false, musicOn = true, musicTimer = 0, last = 0;
+  let rot = 0, vel = 0, mode = 'carousel', focused = null, busy = false, musicOn = true, musicTimer = 0, last = 0, holdUntil = 0;
   const slots = [], tweens = [], bursts = [];
   const P = () => window.ADVENT_PHRASES;
   const easeBack = (p) => 1 + 2.7 * Math.pow(p - 1, 3) + 1.7 * Math.pow(p - 1, 2);
@@ -603,7 +603,7 @@
   function loop() {
     raf = requestAnimationFrame(loop);
     const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
-    if (mode === 'carousel' && !busy) { vel *= 0.94; rot += vel + (Math.abs(vel) < 0.002 ? 0.0025 : 0); }
+    if (mode === 'carousel' && !busy) { vel *= 0.94; rot += vel + (Math.abs(vel) < 0.002 && t > holdUntil ? 0.0025 : 0); }
     platform.rotation.y = rot;
     slots.forEach((sl, i) => {
       sl.anchor.position.y = 0.14 + 0.12 * (Math.sin(t * 1.7 + i * 0.9) + 1) / 2;
@@ -656,10 +656,20 @@
     ui.querySelector('.tb-name').hidden = true; ui.querySelector('.tb-back').hidden = true; ui.querySelector('.tb-hint').textContent = '👆 Swipe to spin · tap a toy!';
     clock.getDelta();
     if (!raf) loop();
-    if (opts.focus) {
-      const sl = slots[opts.focus - 1];
-      rot = -((opts.focus - 1) / N) * Math.PI * 2; vel = 0; platform.rotation.y = rot; platform.updateMatrixWorld(true);
-      setTimeout(() => focus(sl, opts.entrance), 250);
+    // opts.focus: spin to that toy and bring it forward · opts.at: just spin to that spot
+    const d = opts.focus || opts.at;
+    if (d) {
+      const target = -((d - 1) / N) * Math.PI * 2;
+      const from = opts.entrance ? target : target + 1.6; // a quick spin-in so she sees it travel round
+      rot = from; vel = 0; busy = true; platform.rotation.y = rot;
+      tween(opts.entrance ? 0.25 : 1.2, (p) => { rot = from + (target - from) * easeInOut(p); }, () => {
+        rot = target; platform.rotation.y = rot; platform.updateMatrixWorld(true); busy = false;
+        holdUntil = clock.elapsedTime + 5; // stay put for a moment so the chosen toy stays in front
+        const sl = slots[d - 1];
+        if (opts.focus && sl.kind === 'toy') focus(sl, opts.entrance);
+        else if (sl.kind === 'box') { animate(sl, 'wiggle'); Advent.speak(P().toyLocked(d)); }
+        else Advent.speak(P().toyBoxHello);
+      });
     } else Advent.speak(P().toyBoxHello);
     if (musicOn) music();
   }

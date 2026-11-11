@@ -610,6 +610,7 @@
     },
     status, isToday, sleepsUntil, countdowns, tryOpen, open, close,
     openedCount: () => Object.keys(S.opened).length,
+    lastOpened: () => { let best = null; for (const [d, t] of Object.entries(S.opened)) if (!best || t > S.opened[best]) best = d; return best ? +best : null; },
     stickers: () => DAYS.map((d) => ({ d: d.d, sticker: d.sticker, have: !!S.opened[d.d] })),
     speak, hush, sfx, tone, confetti, stickerHTML, snow, startBeat, stopBeat, showParent,
   };
