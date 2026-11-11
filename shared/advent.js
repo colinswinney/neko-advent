@@ -55,22 +55,54 @@
 
   // ---------------------------------------------------------------- voice
   // Plays pre-made audio files (made by tools/make-voice.js, listed in audio/manifest.js).
-  // Lines without a file are silent.
+  // Lines take turns: a new line waits for the current one to finish instead of cutting it off.
+  // Repeats are skipped and only a few lines can wait, so fast tapping can't build a backlog.
+  // hush() stops everything immediately (closing a pop-up, leaving a toy).
   const SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-  let player = null, unlocked = false;
+  const MAX_WAITING = 3;
+  let player = null, unlocked = false, playing = null, gen = 0;
+  const queue = [];
   const audioEl = () => player || (player = new Audio());
+  const keyOf = (item) => (item.live ? 'live:' : '') + item.text;
   function unlockAudio() { // call inside a tap so iPad Safari lets us play later
-    if (unlocked) return; unlocked = true;
-    const a = audioEl(); a.src = SILENCE; a.play().catch(() => {});
+    if (unlocked || playing) return; unlocked = true;
+    const a = audioEl(); a.onended = a.onerror = null; a.src = SILENCE; a.play().catch(() => {});
+  }
+  function enqueue(item) {
+    const k = keyOf(item);
+    if ((playing && keyOf(playing) === k) || queue.some((q) => keyOf(q) === k)) return;
+    if (queue.length >= MAX_WAITING) queue.shift();
+    queue.push(item);
+    if (!playing) playNext();
+  }
+  function playNext() {
+    const item = queue.shift();
+    playing = item || null;
+    if (!item) return;
+    const my = gen, done = () => { if (my === gen && playing === item) playNext(); };
+    if (item.live) {
+      try {
+        const u = new SpeechSynthesisUtterance(item.text.replace(/\bNeko\b/gi, 'Neeko').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, ''));
+        u.voice = item.voice; u.lang = item.voice.lang; u.rate = 0.95;
+        u.onend = u.onerror = done;
+        speechSynthesis.speak(u);
+      } catch (e) { done(); }
+      return;
+    }
+    const a = audioEl();
+    a.onended = a.onerror = done;
+    a.src = 'audio/' + item.file;
+    a.play().catch(done);
   }
   function speak(text) {
-    const a = audioEl(); a.pause();
     const file = (window.ADVENT_AUDIO || {})[text];
-    if (!file) return;
-    a.src = 'audio/' + file; a.currentTime = 0;
-    a.play().catch(() => {});
+    if (file) enqueue({ text, file });
   }
-  const hush = () => { if (player) player.pause(); try { speechSynthesis.cancel(); } catch (e) {} };
+  function hush() {
+    gen++; queue.length = 0; playing = null;
+    if (player) { player.onended = player.onerror = null; player.pause(); }
+    try { speechSynthesis.cancel(); } catch (e) {}
+  }
   const hasVoice = (text) => !!(window.ADVENT_AUDIO || {})[text];
 
   // Live reading for grown-up notes (they can't be pre-recorded). Only uses a nice installed voice
@@ -85,11 +117,8 @@
   }
   try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => {}; } catch (e) {}
   function speakLive(text) {
-    const v = niceVoice(); if (!v) return;
-    hush(); speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/\bNeko\b/gi, 'Neeko').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, ''));
-    u.voice = v; u.lang = v.lang; u.rate = 0.95;
-    speechSynthesis.speak(u);
+    const voice = niceVoice();
+    if (voice) enqueue({ text, live: true, voice });
   }
 
   // ---------------------------------------------------------------- sound (tiny synth, no files)
