@@ -293,16 +293,69 @@
       return () => { alive = false; stopBeat(); };
     },
 
-    joke(stage, cfg, done) {
-      const w = el('div', 'adv-joke', `<div class="adv-joke-q"></div><button class="adv-btn adv-big">🤔 Tell me!</button><div class="adv-joke-a" hidden></div>`);
-      $('.adv-joke-q', w).textContent = cfg.q;
+    // memory game: flip two cards, find the pairs
+    match(stage, cfg, done) {
+      const cards = [...cfg.pairs, ...cfg.pairs].sort(() => Math.random() - 0.5);
+      let first = null, lock = false, found = 0;
+      const grid = el('div', 'adv-memory');
+      grid.style.setProperty('--cols', cfg.pairs.length <= 3 ? 3 : 4);
+      cards.forEach((face, i) => {
+        const c = el('button', 'adv-mcard', `<span class="back">${cfg.back || '✨'}</span><span class="front">${face}</span>`);
+        c.style.animationDelay = i * 0.05 + 's';
+        c.onclick = () => {
+          if (lock || c.classList.contains('flip')) return;
+          c.classList.add('flip'); sfx.pop();
+          if (!first) { first = c; return; }
+          const a = first; first = null;
+          if (a.lastChild.textContent === c.lastChild.textContent) {
+            found++;
+            setTimeout(() => {
+              a.classList.add('matched'); c.classList.add('matched'); sfx.sparkle();
+              const r = c.getBoundingClientRect(); confetti(30, [face], r.left + r.width / 2, r.top);
+              if (found === cfg.pairs.length) setTimeout(done, 700); else speak(P.match);
+            }, 350);
+          } else {
+            lock = true;
+            setTimeout(() => { a.classList.remove('flip'); c.classList.remove('flip'); lock = false; }, 1000);
+          }
+        };
+        grid.append(c);
+      });
+      stage.append(grid);
+    },
+
+    // build a snowman one tap at a time
+    build(stage, cfg, done) {
+      let n = 0;
+      const w = el('div', 'adv-build', `
+        <div class="adv-snowfield">
+          <div class="sm base"><i class="btn b1"></i><i class="btn b2"></i></div>
+          <div class="sm middle"><i class="btn b1"></i><i class="btn b2"></i></div>
+          <div class="sm head"></div>
+          <div class="sm face"><i class="eye l"></i><i class="eye r"></i><i class="nose"></i><i class="mouth"></i></div>
+          <div class="sm hat"><i class="brim"></i><i class="band"></i></div>
+          <div class="sm scarf"><i class="tail"></i></div>
+          <div class="sm arms"><i class="arm l"></i><i class="arm r"></i></div>
+          <div class="adv-helper">🐧</div>
+        </div>
+        <button class="adv-btn adv-big">❄️ Add a piece!</button>
+        <div class="adv-hint">0 / ${cfg.steps.length}</div>`);
       stage.append(w);
-      const btn = $('.adv-btn', w), a = $('.adv-joke-a', w);
-      btn.onclick = () => {
-        btn.hidden = true; a.hidden = false; a.textContent = cfg.a;
-        speak(cfg.a); sfx.sparkle(); confetti(30, ['😂', '🤣']);
-        setTimeout(done, 1800);
+      const btn = $('.adv-btn', w), hint = $('.adv-hint', w), helper = $('.adv-helper', w);
+      const step = () => {
+        if (n >= cfg.steps.length) return;
+        const st = cfg.steps[n++];
+        $('.sm.' + st.part, w).classList.add('on');
+        speak(st.say); sfx.thud(); sfx.sparkle();
+        restart(helper, 'cheer');
+        hint.textContent = `${n} / ${cfg.steps.length}`;
+        if (n === cfg.steps.length) {
+          btn.hidden = true;
+          setTimeout(() => { w.classList.add('done'); confetti(80, ['❄️', '⛄']); done(); }, 900);
+        }
       };
+      btn.onclick = step;
+      $('.adv-snowfield', w).onclick = step;
     },
 
     choose(stage, cfg, done) {

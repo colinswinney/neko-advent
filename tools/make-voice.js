@@ -20,6 +20,7 @@ const { allLines } = require('../shared/days.js');
 const PRONOUNCE = {
   Neko: 'Neeko',
   Sinterklaas: 'Sinter-klaass',
+  Ozosnel: 'Oh-zo-snell',
   Pepernoten: 'Payper-noaten',
   dobok: 'doe-bok',
   'Hi-yah': 'Hee-yah',
